@@ -1,0 +1,15 @@
+name: EffectTrace
+version: '1.0.0'
+main: dev.effecttrace.EffectTrace
+api-version: '1.21'
+description: Finds out what is removing or cancelling a potion effect (for example Strength).
+author: ClankerSMP
+commands:
+  effecttrace:
+    description: Diagnose a potion effect that keeps getting removed
+    usage: /effecttrace <test|potion|listeners|type|status>
+    permission: effecttrace.use
+permissions:
+  effecttrace.use:
+    description: Use /effecttrace
+    default: op
