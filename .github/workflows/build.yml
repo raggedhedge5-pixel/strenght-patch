@@ -1,0 +1,59 @@
+name: Build EffectTrace
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      # Works whether the files are loose in the repo root or already in Maven folders.
+      - name: Arrange files into Maven layout
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, shutil
+          for f in sorted(glob.glob('*.java')):
+              pkg = None
+              with open(f, encoding='utf-8') as fh:
+                  for line in fh:
+                      m = re.match(r'\s*package\s+([\w.]+)\s*;', line)
+                      if m:
+                          pkg = m.group(1)
+                          break
+              if not pkg:
+                  raise SystemExit('No package line in ' + f)
+              dest = os.path.join('src', 'main', 'java', *pkg.split('.'))
+              os.makedirs(dest, exist_ok=True)
+              shutil.move(f, os.path.join(dest, f))
+          os.makedirs('src/main/resources', exist_ok=True)
+          if os.path.exists('plugin.yml'):
+              shutil.move('plugin.yml', 'src/main/resources/plugin.yml')
+          PY
+          test -f src/main/resources/plugin.yml || (echo "plugin.yml is missing from the repo" && exit 1)
+          find src -type f | sort
+
+      - name: Build with Maven
+        run: mvn -B clean package
+
+      - name: Check the jar contains plugin.yml
+        run: |
+          unzip -l target/EffectTrace.jar | grep -E "plugin.yml|dev/effecttrace/EffectTrace.class"
+          unzip -l target/EffectTrace.jar | grep -q " plugin.yml" || (echo "jar has no plugin.yml" && exit 1)
+
+      - name: Upload plugin jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: EffectTrace
+          path: target/EffectTrace.jar
